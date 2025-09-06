@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f141b">
+
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BeNote — বাংলা নোটপ্যাড</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+
+<!-- Favicon (tab এ দেখাবে) -->
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+<!-- PNG fallback (যদি ব্রাউজার SVG না নেয়) -->
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+  <!-- (চাইলে নিজের favicon.svg যোগ করো)
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  -->
+
+  <style>
+    :root{
+      --bg:#f6f7fb; --panel:#ffffff; --text:#1c2430; --muted:#6c7a8a;
+      --brand:#5b8def; --danger:#e74c3c; --ok:#2ecc71; --border:#e5e7ef;
+    }
+    .dark{
+      --bg:#0f141b; --panel:#121a22; --text:#e7edf5; --muted:#96a4b3;
+      --brand:#7aa2ff; --danger:#ff6b63; --ok:#48d0a3; --border:#233040;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,
+           "Noto Sans Bengali","Kalpurush",Arial,sans-serif;
+    }
+    .app{display:grid; grid-template-columns:320px 1fr; height:100vh}
+    .sidebar{border-right:1px solid var(--border); background:var(--panel); display:flex; flex-direction:column}
+    .topbar{display:flex; gap:8px; align-items:center; padding:14px; border-bottom:1px solid var(--border)}
+    .brand{font-weight:800; font-size:18px; letter-spacing:.5px}
+    .search{flex:1}
+    input,button,textarea{font:inherit}
+    input[type="text"], .search input{
+      width:100%; padding:10px 12px; border:1px solid var(--border);
+      background:transparent; color:var(--text); border-radius:10px; outline:none;
+    }
+    .btn{padding:9px 12px; border-radius:10px; border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer}
+    .btn.primary{background:var(--brand); color:#fff; border-color:var(--brand)}
+    .btn.danger{background:var(--danger); color:#fff; border-color:transparent}
+    .btn.ok{background:var(--ok); color:#fff; border-color:transparent}
+    .btn.ghost{background:transparent}
+    .list{overflow:auto}
+    .note-item{
+      padding:12px 14px; border-bottom:1px solid var(--border);
+      cursor:pointer; display:grid; grid-template-columns:1fr auto; gap:8px;
+    }
+    .note-item.active{background:rgba(91,141,239,.12)}
+    .title{font-weight:700}
+    .muted{color:var(--muted); font-size:13px}
+    .pin{color:var(--brand); margin-left:8px; font-size:14px}
+    .editor{display:flex; flex-direction:column; height:100%}
+    .toolbar{display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel)}
+    .grow{flex:1}
+    .area{flex:1; padding:16px; background:var(--bg)}
+    textarea{
+      width:100%; height:100%; resize:none; border:1px solid var(--border);
+      background:var(--panel); color:var(--text); padding:16px; border-radius:12px; outline:none;
+    }
+    .statusbar{display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-top:1px solid var(--border); background:var(--panel)}
+    .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; color:var(--muted)}
+    .row{display:flex; gap:8px; flex-wrap:wrap}
+    .hide-mobile{display:block}
+    @media (max-width:980px){
+      .app{grid-template-columns:1fr}
+      .sidebar{position:absolute; z-index:20; width:88%; max-width:360px; height:100%; transform:translateX(-100%); transition:.25s}
+      .sidebar.show{transform:none; box-shadow:0 8px 30px rgba(0,0,0,.25)}
+      .hide-mobile{display:none}
+      .toolbar{gap:6px}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="topbar">
+      <button class="btn hide-mobile" id="closeNav">☰</button>
+      <div class="brand">BeNote</div>
+      <div class="search"><input id="q" type="text" placeholder="🔎 খুঁজুন (Ctrl+/)" /></div>
+      <button class="btn" id="toggleTheme" title="Dark/Light">🌗</button>
+    </div>
+    <div class="topbar" style="gap:8px">
+      <button class="btn primary" id="newNote">➕ New (Ctrl+N)</button>
+      <button class="btn" id="exportAll" title="Export JSON">⤓ Export</button>
+      <label class="btn">
+        ⤒ Import <input id="importFile" type="file" accept="application/json" style="display:none" />
+      </label>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+
+  <!-- Editor -->
+  <main class="editor">
+    <div class="toolbar">
+      <button class="btn" id="openNav">☰ Menu</button>
+      <input class="grow" id="title" type="text" placeholder="শিরোনাম লিখুন…" />
+      <button class="btn" id="pin">📌 Pin (Ctrl+P)</button>
+
+      <button class="btn ok" id="downloadTxt" title="Download .txt">⬇️ .txt</button>
+      <!-- ✅ একটাই PDF বাটন (Portrait) -->
+      <button class="btn ok" id="downloadPdf" title="Download PDF">⬇️ .pdf</button>
+
+      <button class="btn danger" id="deleteNote">🗑️ Delete (Ctrl+D)</button>
+    </div>
+    <div class="area"><textarea id="content" placeholder="এখানে লিখুন… টাইপ করলেই সেভ হবে।"></textarea></div>
+    <div class="statusbar">
+      <div class="row">
+        <span class="chip" id="saved">💾 Auto-saved</span>
+        <span class="chip" id="updated"></span>
+      </div>
+      <div class="row">
+        <span class="chip" id="wc">Words: 0</span>
+        <span class="chip" id="cc">Chars: 0</span>
+        <span class="chip" id="lc">Lines: 0</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============  Main JS  ============ -->
+<script>
+/* ---------- Utilities ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const fmt = ts => new Date(ts).toLocaleString('bn-BD',{hour12:true});
+const uid = () => Math.random().toString(36).slice(2,10);
+const saveState = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const loadState = (k,fall=[])=>JSON.parse(localStorage.getItem(k)||JSON.stringify(fall));
+
+/* ---------- App State ---------- */
+let notes = loadState('notes_v1');
+let currentId = localStorage.getItem('current_id') || null;
+let dark = JSON.parse(localStorage.getItem('dark')||'false');
+if(dark) document.documentElement.classList.add('dark');
+
+/* ---------- DOM ---------- */
+const list = $('#list');
+const title = $('#title');
+const content = $('#content');
+const pinBtn = $('#pin');
+const savedChip = $('#saved');
+const updatedChip = $('#updated');
+const wc = $('#wc'), cc = $('#cc'), lc = $('#lc');
+
+/* ---------- Rendering ---------- */
+function renderList(filter=''){
+  list.innerHTML = '';
+  const filtered = notes
+    .filter(n => (n.title+n.content).toLowerCase().includes(filter.toLowerCase()))
+    .sort((a,b)=> (b.pinned - a.pinned) || (b.updated - a.updated));
+  for(const n of filtered){
+    const item = document.createElement('div');
+    item.className = 'note-item' + (n.id===currentId?' active':'' );
+    item.dataset.id = n.id;
+    item.innerHTML = `
+      <div>
+        <div class="title">${escapeHTML(n.title||'Untitled')}</div>
+        <div class="muted">${truncate(n.content||'', 70)}</div>
+      </div>
+      <div class="muted">${n.pinned?'<span class="pin">📌</span>':''}${timeAgo(n.updated)}</div>
+    `;
+    item.onclick = ()=>openNote(n.id);
+    list.appendChild(item);
+  }
+}
+function renderEditor(){
+  const n = notes.find(x=>x.id===currentId);
+  if(!n){ title.value=''; content.value=''; pinBtn.dataset.pin='0'; updateCounters(); updatedChip.textContent=''; return; }
+  title.value = n.title || '';
+  content.value = n.content || '';
+  pinBtn.dataset.pin = n.pinned ? '1' : '0';
+  pinBtn.textContent = (n.pinned?'📌 Unpin':'📌 Pin (Ctrl+P)');
+  updatedChip.textContent = '⏱️ ' + fmt(n.updated);
+  updateCounters();
+}
+
+/* ---------- Helpers ---------- */
+function truncate(t, len){ return (t||'').length>len ? t.slice(0,len)+'…' : (t||''); }
+function timeAgo(ts){
+  const sec = Math.floor((Date.now()-ts)/1000);
+  if(sec<60) return sec+'s';
+  const min = Math.floor(sec/60); if(min<60) return min+'m';
+  const hr = Math.floor(min/60); if(hr<24) return hr+'h';
+  const d = Math.floor(hr/24); return d+'d';
+}
+function escapeHTML(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[m]); }
+function updateCounters(){
+  const t = content.value||'';
+  wc.textContent = 'Words: ' + (t.trim()?t.trim().split(/\s+/).length:0);
+  cc.textContent = 'Chars: ' + t.length;
+  lc.textContent = 'Lines: ' + (t.split(/\n/).length);
+}
+
+/* ---------- CRUD ---------- */
+function createNote(){
+  const n = { id: uid(), title: 'নতুন নোট', content:'', pinned:false, created: Date.now(), updated: Date.now() };
+  notes.unshift(n); currentId = n.id;
+  flush(); renderList($('#q').value); renderEditor();
+}
+function openNote(id){
+  currentId = id; localStorage.setItem('current_id', id);
+  renderList($('#q').value); renderEditor();
+}
+function deleteNote(){
+  if(!currentId) return;
+  if(!confirm('এই নোটটি ডিলিট করবেন?')) return;
+  notes = notes.filter(n=>n.id!==currentId);
+  currentId = notes[0]?.id || null;
+  flush(); renderList($('#q').value); renderEditor();
+}
+function togglePin(){
+  const n = notes.find(x=>x.id===currentId); if(!n) return;
+  n.pinned = !n.pinned; n.updated = Date.now();
+  flush(); renderList($('#q').value); renderEditor();
+}
+
+/* ---------- Saving (debounced autosave) ---------- */
+let tmr; 
+function scheduleSave(){
+  savedChip.textContent='⌛ Saving…';
+  clearTimeout(tmr);
+  tmr = setTimeout(doSave, 400);
+}
+function doSave(){
+  const n = notes.find(x=>x.id===currentId); if(!n) return;
+  n.title = title.value.trim();
+  n.content = content.value;
+  n.updated = Date.now();
+  flush();
+  savedChip.textContent='💾 Auto-saved';
+  renderList($('#q').value);
+}
+function flush(){ saveState('notes_v1', notes); if(currentId) localStorage.setItem('current_id', currentId); }
+
+/* ---------- Export / Import / Download ---------- */
+function exportAll(){
+  const blob = new Blob([JSON.stringify(notes,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'benote-backup.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function downloadTxt(){
+  const n = notes.find(x=>x.id===currentId); if(!n) return;
+  const blob = new Blob([n.title+'\n\n'+n.content], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (n.title||'note')+'.txt';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ✅ একটাই PDF (Portrait) */
+function downloadPdf(){
+  if (typeof html2pdf === 'undefined') {
+    alert('PDF লাইব্রেরি লোড হয়নি। রিফ্রেশ দিন (Ctrl+F5).');
+    return;
+  }
+  const n = notes.find(x=>x.id===currentId);
+  if(!n){ alert('কোনো নোট ওপেন নেই!'); return; }
+
+  const el = document.createElement('div');
+  el.style.fontFamily = 'Noto Sans Bengali, Kalpurush, Arial, sans-serif';
+  el.style.padding = '12mm';
+  el.style.color = '#000';
+  el.innerHTML = `
+    <h1 style="margin:0 0 8mm 0">${escapeHTML(n.title || 'Untitled')}</h1>
+    <pre style="white-space:pre-wrap; margin:0">${escapeHTML(n.content || '')}</pre>
+  `;
+  const opt = {
+    margin: 10,
+    filename: (n.title || 'note') + '.pdf',
+    image: { type: 'jpeg', quality: 1 },
+
+    html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  html2pdf().set(opt).from(el).save();
+}
+
+/* ---------- Theme & Mobile Nav ---------- */
+$('#toggleTheme').onclick = ()=>{
+  document.documentElement.classList.toggle('dark');
+  dark = document.documentElement.classList.contains('dark');
+  localStorage.setItem('dark', JSON.stringify(dark));
+};
+$('#openNav').onclick = ()=> $('#sidebar').classList.add('show');
+$('#closeNav').onclick = ()=> $('#sidebar').classList.remove('show');
+
+/* ---------- Event bindings ---------- */
+$('#newNote').onclick = createNote;
+$('#deleteNote').onclick = deleteNote;
+pinBtn.onclick = togglePin;
+$('#exportAll').onclick = exportAll;
+$('#downloadTxt').onclick = downloadTxt;
+$('#downloadPdf').onclick = downloadPdf;          /* ✅ এই একটাই PDF বাটন */
+$('#importFile').onchange = e=> e.target.files[0] && importAll(e.target.files[0]);
+$('#q').oninput = e => renderList(e.target.value);
+
+title.oninput = scheduleSave;
+content.oninput = ()=>{ scheduleSave(); updateCounters(); };
+
+/* Keyboard shortcuts */
+document.addEventListener('keydown', e=>{
+  const mod = e.ctrlKey || e.metaKey;
+  if(mod && e.key.toLowerCase()==='n'){ e.preventDefault(); createNote(); }
+  if(mod && e.key.toLowerCase()==='d'){ e.preventDefault(); deleteNote(); }
+  if(mod && e.key.toLowerCase()==='p'){ e.preventDefault(); togglePin(); }
+  if(mod && e.key==='/'){ e.preventDefault(); $('#q').focus(); }
+});
+
+/* ---------- Import (merge) ---------- */
+function importAll(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      if(!Array.isArray(data)) throw new Error('Invalid file');
+      const byId = new Map(notes.map(n=>[n.id,n]));
+      for(const n of data){ byId.set(n.id, n); }
+      notes = Array.from(byId.values());
+      flush(); renderList($('#q').value); alert('✅ Import done!');
+    }catch(e){ alert('ফাইলটি সঠিক নয়।'); }
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- First run ---------- */
+if(notes.length===0){
+  notes = [{
+    id: uid(), title:'স্বাগতম!', pinned:true,
+    content:'এটা আপনার বাংলা নোটপ্যাড। টাইপ করলেই সেভ হয়। বামে New/Export/Import আছে।\n\nশর্টকাট:\n• Ctrl+N নতুন নোট\n• Ctrl+D ডিলিট\n• Ctrl+P পিন/আনপিন\n• Ctrl+/ সার্চ\n\nশুভকামনা!',
+    created: Date.now(), updated: Date.now()
+  }];
+  currentId = notes[0].id;
+  flush();
+}else{
+  if(!currentId) currentId = notes[0].id;
+}
+renderList('');
+renderEditor();
+</script>
+
+<!-- html2pdf লাইব্রেরি (PDF-এর জন্য) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script src="./libs/html2pdf.bundle.min.js"></script>
+
+<script>
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('SW registered:', reg))
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}
+</script>
+
+</body>
+</html>
