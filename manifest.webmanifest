@@ -3,7 +3,7 @@
   "short_name": "BeNote",
   "description": "দ্রুত বাংলা নোট লিখুন — অফলাইনেও চলে",
   
-  "start_url": "/benote/index.html",
+ "start_url": "index.html",
 "scope": "/benote/"
   "display": "standalone",
   
@@ -24,4 +24,5 @@
     }
   ]
 }
+
 
