@@ -353,7 +353,6 @@ renderEditor();
 </script>
 
 <!-- html2pdf লাইব্রেরি (PDF-এর জন্য) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <script src="./libs/html2pdf.bundle.min.js"></script>
 
@@ -361,7 +360,7 @@ renderEditor();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/benote/sw.js')
+    navigator.serviceWorker.register('sw.js', { scope: './' })
       .then(reg => console.log('SW registered:', reg))
       .catch(err => console.log('SW registration failed:', err));
   });
