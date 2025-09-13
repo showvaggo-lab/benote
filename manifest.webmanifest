@@ -3,8 +3,8 @@
   "short_name": "BeNote",
   "description": "দ্রুত বাংলা নোট লিখুন — অফলাইনেও চলে",
   
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/benote/index.html",
+"scope": "/benote/"
   "display": "standalone",
   
   "background_color": "#0f141b",
@@ -24,3 +24,4 @@
     }
   ]
 }
+
