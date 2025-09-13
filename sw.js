@@ -37,7 +37,8 @@ self.addEventListener('fetch', (e) => {
   if (req.mode === 'navigate') {
     // পেজ লোড: আগে নেটওয়ার্ক, অফলাইনে index.html
     e.respondWith(
-      fetch(req).catch(() => caches.match('index.html'))
+      fetch(req).catch(() => caches.match('/benote/index.html'))
+
     );
     return;
   }
@@ -58,3 +59,4 @@ self.addEventListener('fetch', (e) => {
     })
   );
 });
+
