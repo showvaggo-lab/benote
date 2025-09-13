@@ -2,11 +2,12 @@
   "name": "BeNote — বাংলা নোটপ্যাড",
   "short_name": "BeNote",
   "description": "দ্রুত বাংলা নোট লিখুন — অফলাইনেও চলে",
-  
- "start_url": "index.html",
-"scope": "/benote/"
+
+  "start_url": "index.html",
+  "scope": "./",
+
   "display": "standalone",
-  
+
   "background_color": "#0f141b",
   "theme_color": "#0f141b",
 
@@ -24,5 +25,3 @@
     }
   ]
 }
-
-
